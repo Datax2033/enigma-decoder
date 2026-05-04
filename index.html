@@ -221,14 +221,26 @@
         const easyWords = ["COMPUTER", "MOUSE", "TASTIERA", "SCHERMO", "MONITOR", "CURSORE", "FILE", "CARTELLA", "PASSWORD", "ROBOT", "INTERNET", "RETE", "PIXEL", "CODICE", "APP", "ICONA", "STAMPA", "MODEM", "SERVER", "CHIP", "BIT", "BYTE", "RAM", "CPU", "GRAFICA", "VIDEO", "AUDIO", "CLICK", "DIGITALE", "LOGIN", "LOGOUT", "CARTUCCIA", "STAMPANTE", "SITO", "SCANNER", "MEMORIA"];
         const hardWords = ["ALGORITMO", "DATABASE", "FIREWALL", "QUERY", "PROTOCOLLO", "CRITTOGRAFIA", "COMPILATORE", "VARIABILE", "SISTEMA", "ARCHIVIAZIONE", "SOFTWARE", "HARDWARE", "INTERFACCIA", "DEBUG", "CACHE", "PROCESSORE", "MAINFRAME", "TRANSISTOR", "ENIAC", "TURING", "SILICON", "BITMAP", "EMULATORE", "FIRMWARE", "ROUTER", "PACCHETTO", "SCRIPT", "TERMINALE", "SHELL", "BACKUP", "ENCODING", "DECODING", "KERNELS", "THREAD", "OVERCLOCK"];
 
-        let currentWords = [];
+        // Code per gestire le parole non ancora usate
+        let easyQueue = [];
+        let hardQueue = [];
+        
+        let currentMode = 'easy';
         let selectedWord = "";
         let guessedLetters = [];
         let mistakes = 0;
         let currentTheme = "#00FF41";
         const maxMistakes = 7;
 
-        // Funzione per mostrare schermi generici (menu/lore) resettando al verde
+        // Funzione per rimescolare un array (Fisher-Yates)
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
         function goToMenu(screenId) {
             resetToGreen();
             showScreen(screenId);
@@ -248,11 +260,10 @@
 
         function setDifficulty(level) {
             const root = document.documentElement;
+            currentMode = level;
             if (level === 'easy') {
-                currentWords = easyWords;
                 resetToGreen();
             } else {
-                currentWords = hardWords;
                 currentTheme = "#FFB000";
                 root.style.setProperty('--primary-color', '#FFB000');
                 root.style.setProperty('--bg-color', '#1A0A00');
@@ -279,7 +290,19 @@
         }
 
         function initGame() {
-            selectedWord = currentWords[Math.floor(Math.random() * currentWords.length)].toUpperCase();
+            // Gestione rotazione parole senza ripetizioni
+            if (currentMode === 'easy') {
+                if (easyQueue.length === 0) {
+                    easyQueue = shuffle([...easyWords]);
+                }
+                selectedWord = easyQueue.pop().toUpperCase();
+            } else {
+                if (hardQueue.length === 0) {
+                    hardQueue = shuffle([...hardWords]);
+                }
+                selectedWord = hardQueue.pop().toUpperCase();
+            }
+
             guessedLetters = [];
             mistakes = 0;
             message.textContent = "DECODIFICA IN CORSO... INSERIRE INPUT.";
