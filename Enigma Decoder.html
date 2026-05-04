@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enigma Codebreaker - WW2 Edition</title>
+    <style>
+        :root {
+            --matrix-green: #00FF41;
+            --dark-bg: #001B00;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: crosshair;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--matrix-green);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            text-transform: uppercase;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .active {
+            display: flex;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px var(--matrix-green);
+            letter-spacing: 3px;
+        }
+
+        .menu-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .menu-btn {
+            background: transparent;
+            border: 2px solid var(--matrix-green);
+            color: var(--matrix-green);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            transition: all 0.3s;
+            width: 280px;
+            cursor: pointer;
+        }
+
+        .menu-btn:hover {
+            background: var(--matrix-green);
+            color: var(--dark-bg);
+            box-shadow: 0 0 20px var(--matrix-green);
+        }
+
+        .lore-box {
+            border: 2px solid var(--matrix-green);
+            padding: 20px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            font-size: 0.9rem;
+            text-align: left;
+            background: rgba(0, 255, 65, 0.05);
+        }
+
+        #hangman-canvas {
+            image-rendering: pixelated;
+            border: 4px solid var(--matrix-green);
+            background-color: var(--dark-bg);
+            width: 220px;
+            height: 220px;
+            margin-bottom: 10px;
+        }
+
+        #word-display {
+            font-size: 1.8rem;
+            letter-spacing: 8px;
+            margin: 15px 0;
+            min-height: 2.5rem;
+            border-bottom: 2px solid rgba(0, 255, 65, 0.3);
+            padding-bottom: 5px;
+        }
+
+        #keyboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(35px, 1fr));
+            gap: 5px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .key {
+            background: transparent;
+            border: 1px solid var(--matrix-green);
+            color: var(--matrix-green);
+            padding: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .key:hover:not(:disabled) {
+            background: var(--matrix-green);
+            color: var(--dark-bg);
+        }
+
+        .key:disabled {
+            opacity: 0.1;
+        }
+
+        #message {
+            height: 40px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #fff;
+            text-shadow: 0 0 5px var(--matrix-green);
+        }
+
+        .btn-action {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: var(--matrix-green);
+            color: var(--dark-bg);
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(0, 255, 65, 0.05) 50%, transparent 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 1.5rem; }
+            #word-display { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    
+    <!-- Menu Principale -->
+    <div id="menu-screen" class="screen active">
+        <h1>ENIGMA_DECODER</h1>
+        <div class="menu-options">
+            <button class="menu-btn" onclick="showScreen('game-screen'); initGame();">INIZIA MISSIONE</button>
+            <button class="menu-btn" onclick="showScreen('lore-screen')">BRIEFING (STORIA)</button>
+        </div>
+    </div>
+
+    <!-- Schermata Lore -->
+    <div id="lore-screen" class="screen">
+        <h1>TOP_SECRET</h1>
+        <div class="lore-box">
+            > DATA: 14 GIUGNO 1944.<br>
+            > LOCALITA': NORMANDIA, TERRITORIO OCCUPATO.<br><br>
+            > SEI UN AGENTE INFILTRATO DELL'INTELLIGENCE.<br>
+            > ABBIAMO INTERCETTATO COMUNICAZIONI CRIPTATE TEDESCHE.<br>
+            > SE NON DECIFRI LA PAROLA CHIAVE IN TEMPO,<br>
+            > IL DETONATORE ATTIVERA' LA CARICA NELL'AVAMPOSTO.<br><br>
+            > OGNI ERRORE AVVICINA L'ESPLOSIONE O LA TUA CATTURA.<br>
+            > SALVA L'OPERAZIONE, SOLDATO.
+        </div>
+        <button class="menu-btn" onclick="showScreen('menu-screen')">INDIETRO</button>
+    </div>
+
+    <!-- Schermata Gioco -->
+    <div id="game-screen" class="screen">
+        <canvas id="hangman-canvas" width="120" height="120"></canvas>
+        <div id="message"></div>
+        <div id="word-display"></div>
+        <div id="keyboard"></div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-action" id="reset-btn" style="display:none" onclick="initGame()">NUOVO CODICE</button>
+            <button class="btn-action" onclick="showScreen('menu-screen')">ABBANDONA</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('hangman-canvas');
+        const ctx = canvas.getContext('2d');
+        const wordDisplay = document.getElementById('word-display');
+        const keyboard = document.getElementById('keyboard');
+        const message = document.getElementById('message');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Ripristinate le parole originali (Pixel, Matrice, ecc.)
+        const words = ["PIXEL", "MATRICE", "CODICE", "COMPUTER", "PROGRAMMA", "GRAFICA", "TERMINALE", "RETRO", "ALGORITMO", "SCHERMO", "JAVA", "PYTHON", "WEB", "QUERY", "KEYBOARD", "DATABASE", "FIREWALL", "BINARY"];
+        let selectedWord = "";
+        let guessedLetters = [];
+        let mistakes = 0;
+        const maxMistakes = 7;
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function drawPixel(x, y, w = 4, h = 4) {
+            ctx.fillStyle = "#00FF41";
+            ctx.fillRect(x, y, w, h);
+        }
+
+        // Disegna la bomba in stile pixel
+        function drawBomb(step) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Tavolo/Supporto
+            if (step >= 0) {
+                for(let i=20; i<100; i+=4) drawPixel(i, 100);
+            }
+            
+            // 1. Corpo della bomba
+            if (step >= 1) {
+                for(let i=40; i<80; i+=4) {
+                    drawPixel(i, 60); drawPixel(i, 96);
+                    drawPixel(36, i-10+30); drawPixel(84, i-10+30);
+                }
+            }
+            
+            // 2. Innesco superiore
+            if (step >= 2) {
+                for(let i=56; i<68; i+=4) drawPixel(i, 56);
+                drawPixel(60, 52);
+            }
+            
+            // 3. Miccia
+            if (step >= 3) {
+                drawPixel(64, 48); drawPixel(68, 44); drawPixel(72, 40);
+            }
+            
+            // 4. Scatola del timer
+            if (step >= 4) {
+                ctx.strokeStyle = "#00FF41";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(48, 70, 24, 12);
+            }
+            
+            // 5. Cavi laterali
+            if (step >= 5) {
+                for(let i=0; i<12; i+=4) {
+                    drawPixel(40, 75+i, 4, 2);
+                    drawPixel(80, 75+i, 4, 2);
+                }
+            }
+            
+            // 6. Scintilla attiva
+            if (step >= 6) {
+                drawPixel(76, 36, 6, 6);
+                drawPixel(74, 32, 2, 2);
+                drawPixel(82, 40, 2, 2);
+            }
+            
+            // 7. Esplosione (Game Over)
+            if (step >= 7) {
+                ctx.fillStyle = "#00FF41";
+                for(let i=0; i<120; i+=8) {
+                    for(let j=0; j<120; j+=8) {
+                        if(Math.random() > 0.6) drawPixel(i, j, 6, 6);
+                    }
+                }
+            }
+        }
+
+        function initGame() {
+            selectedWord = words[Math.floor(Math.random() * words.length)].toUpperCase();
+            guessedLetters = [];
+            mistakes = 0;
+            message.textContent = "DECODIFICA IN CORSO... INSERIRE INPUT.";
+            resetBtn.style.display = 'none';
+            drawBomb(0);
+            updateWordDisplay();
+            createKeyboard();
+        }
+
+        function createKeyboard() {
+            keyboard.innerHTML = "";
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(char => {
+                const button = document.createElement('button');
+                button.textContent = char;
+                button.className = 'key';
+                button.onclick = () => handleGuess(char, button);
+                keyboard.appendChild(button);
+            });
+        }
+
+        function handleGuess(char, button) {
+            button.disabled = true;
+            if (selectedWord.includes(char)) {
+                guessedLetters.push(char);
+                updateWordDisplay();
+                if (selectedWord.split("").every(c => guessedLetters.includes(c))) {
+                    message.innerHTML = "ORDIGNO DISATTIVATO.<br>MISSIONE COMPIUTA.";
+                    endGame();
+                }
+            } else {
+                mistakes++;
+                drawBomb(mistakes);
+                if (mistakes >= maxMistakes) {
+                    message.innerHTML = "BOOM! NON HAI DECIFRATO IN TEMPO LA PAROLA E NON SEI RIUSCITO A DISATTIVARE LA BOMBA!.<br>CODICE: " + selectedWord;
+                    endGame();
+                }
+            }
+        }
+
+        function updateWordDisplay() {
+            wordDisplay.textContent = selectedWord.split("").map(c => guessedLetters.includes(c) ? c : "_").join(" ");
+        }
+
+        function endGame() {
+            document.querySelectorAll('.key').forEach(k => k.disabled = true);
+            resetBtn.style.display = 'block';
+        }
+
+        window.onload = () => showScreen('menu-screen');
+    </script>
+</body>
+</html>
